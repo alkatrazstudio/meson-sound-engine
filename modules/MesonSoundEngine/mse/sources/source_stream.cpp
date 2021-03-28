@@ -86,9 +86,8 @@ QString MSE_SourceStream::decodeTagValue(const void* data, quint32 len)
     }
 
     if(QIODeviceEx::isNotUtf8(static_cast<const char*>(data), len))
-        return QString::fromLocal8Bit(static_cast<const char*>(data), len).trimmed();
-    else
-        return QString::fromUtf8(static_cast<const char*>(data), len).trimmed();
+        return QString::fromLatin1(static_cast<const char*>(data), len).trimmed();
+    return QString::fromUtf8(static_cast<const char*>(data), len).trimmed();
 }
 
 bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
@@ -123,7 +122,7 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
                 break;
             }
             tagLen = tag22->byteSize() - 1;
-            tagName = QString::fromLocal8Bit(&tag22->name[0], sizeof(tag22->name));
+            tagName = QString::fromLatin1(&tag22->name[0], sizeof(tag22->name));
             tagp += sizeof(MSE_TagInfoID3v22);
             tagValue = tagp;
             if(tagName == "TT2")
@@ -176,7 +175,7 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
                 break;
             }
             tagLen = tag2->byteSize() - 1;
-            tagName = QString::fromLocal8Bit(&tag2->name[0], sizeof(tag2->name));
+            tagName = QString::fromLatin1(&tag2->name[0], sizeof(tag2->name));
             tagp += sizeof(MSE_TagInfoID3v2);
             tagValue = tagp;
             if(tagName == "TIT2")

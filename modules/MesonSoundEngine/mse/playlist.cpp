@@ -924,13 +924,13 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
             data = _dev.readUntilReturn();
             if(isNotUtf)
             {
-                s = QString::fromLocal8Bit(data);
+                s = QString::fromLatin1(data);
             }
             else
             {
                 isNotUtf = _dev.isNotUtf8(data);
                 if(isNotUtf)
-                    s = QString::fromLocal8Bit(data);
+                    s = QString::fromLatin1(data);
                 else
                     s = QString::fromUtf8(data);
             }
