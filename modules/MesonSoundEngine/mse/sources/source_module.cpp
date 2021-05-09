@@ -67,10 +67,20 @@ bool MSE_SourceModule::close()
 
 bool MSE_SourceModule::parseTagsMOD(MSE_SourceTags &tags)
 {
-    const char* tagsData = BASS_ChannelGetTags(channel, BASS_TAG_MUSIC_NAME);
-    if(!tagsData)
+    const char* nameData = BASS_ChannelGetTags(channel, BASS_TAG_MUSIC_NAME);
+    if(!nameData)
         return false;
-    tags.trackTitle = QString::fromUtf8(tagsData);
+    cpTr.addEntry(nameData, strlen(nameData), [&](const QString& s){tags.trackTitle = s;});
+
+    const char* authData = BASS_ChannelGetTags(channel, BASS_TAG_MUSIC_AUTH);
+    if(authData)
+        cpTr.addEntry(authData, strlen(authData), [&](const QString& s){tags.trackArtist = s;});
+
+    const char* msgData = BASS_ChannelGetTags(channel, BASS_TAG_MUSIC_MESSAGE);
+    if(msgData)
+        cpTr.addEntry(msgData, strlen(msgData), [&](const QString& s){Q_UNUSED(s)});
+
+    cpTr.processEntries(getTrReference());
     return true;
 }
 

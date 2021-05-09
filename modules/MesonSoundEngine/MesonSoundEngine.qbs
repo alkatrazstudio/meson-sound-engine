@@ -21,6 +21,7 @@ Module {
     property bool lastfm: false
     property bool mixer: mpris || lastfm
     property bool sourceUrl: false
+    property bool icu: false
 
     readonly property bool mprisEnabled: {
         return mpris && Common.isLinux
@@ -60,6 +61,16 @@ Module {
     Depends {
         condition: !Common.isWindows
         name: 'quazip'
+    }
+
+    Depends {
+        condition: icu
+        name: 'icu-i18n'
+    }
+
+    Depends {
+        condition: icu
+        name: 'icu-uc'
     }
 
     Depends {name: 'zlib'}
@@ -131,6 +142,8 @@ Module {
             defs.push('MSE_MODULE_MIXER')
         if(MesonSoundEngine.sourceUrl)
             defs.push('MSE_MODULE_SOURCE_URL')
+        if(MesonSoundEngine.icu)
+            defs.push('MSE_ICU')
         return defs
     }
 

@@ -17,6 +17,7 @@
 {****************************************************************************/
 
 #include "mse/sources/source_plugin.h"
+#include "mse/sound.h"
 
 MSE_SourcePlugin::MSE_SourcePlugin(MSE_Playlist *parent) : MSE_SourceStream(parent)
 {

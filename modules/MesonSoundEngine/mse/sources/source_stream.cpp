@@ -19,8 +19,6 @@
 #include "mse/sources/source_stream.h"
 #include "mse/sound.h"
 
-#include "qiodevicehelper.h"
-
 void CALLBACK onMetaSync(HSYNC handle, DWORD channel, DWORD data, void *user)
 {
     Q_UNUSED(handle);
@@ -61,35 +59,6 @@ bool MSE_SourceStream::isLetterOrDigit(char c)
     return ((c>='A')&&(c<='Z')) || ((c>='0')&&(c<='9'));
 }
 
-QString MSE_SourceStream::decodeTagValue(const void* data, quint32 len)
-{
-    // detect UTF-16 BOM 0xFEFF or 0xFFEF
-    if(
-        (len > 1)
-        &&
-        (
-            (
-                (static_cast<const unsigned char*>(data)[0] == 0xFF)
-                &&
-                (static_cast<const unsigned char*>(data)[1] == 0xFE)
-            )
-            ||
-            (
-                (static_cast<const unsigned char*>(data)[0] == 0xFE)
-                &&
-                (static_cast<const unsigned char*>(data)[1] == 0xFF)
-            )
-        )
-    )
-    {
-        return QString::fromUtf16(static_cast<const ushort*>(data), len/2);
-    }
-
-    if(QIODeviceEx::isNotUtf8(static_cast<const char*>(data), len))
-        return QString::fromLatin1(static_cast<const char*>(data), len).trimmed();
-    return QString::fromUtf8(static_cast<const char*>(data), len).trimmed();
-}
-
 bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
 {
     const char* tagStart = BASS_ChannelGetTags(stream, BASS_TAG_ID3V2);
@@ -126,34 +95,28 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
             tagp += sizeof(MSE_TagInfoID3v22);
             tagValue = tagp;
             if(tagName == "TT2")
-                tags.trackTitle = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackTitle = s;});
             else
             if(tagName == "TP1")
-                tags.trackArtist = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackArtist = s;});
             else
             if(tagName == "TP2")
-                tpeValue = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tpeValue = s;});
             else
             if(tagName == "TAL")
-                tags.trackAlbum = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackAlbum = s;});
             else
             if(tagName == "TYE")
-                tags.trackDate = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackDate = s;});
             else
             if(tagName == "TRK")
-                tags.trackIndex = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackIndex = s;});
             else
             if(tagName == "TPA")
-                tags.discIndex = decodeTagValue(tagValue, tagLen);
-            if(!tags.trackTitle.isEmpty()
-                && !tags.trackArtist.isEmpty()
-                && !tags.trackAlbum.isEmpty()
-                && !tags.trackDate.isEmpty()
-                && !tags.trackIndex.isEmpty()
-                && !tags.discIndex.isEmpty()
-            ){
-                break;
-            }
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.discIndex = s;});
+            else
+            if(tagName.startsWith("T"))
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){Q_UNUSED(s)});
             tagp += tagLen;
         }
     }
@@ -179,37 +142,34 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
             tagp += sizeof(MSE_TagInfoID3v2);
             tagValue = tagp;
             if(tagName == "TIT2")
-                tags.trackTitle = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackTitle = s;});
             else
             if(tagName == "TPE1")
-                tags.trackArtist = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackArtist = s;});
             else
             if(tagName == "TPE2")
-                tpeValue = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tpeValue = s;});
             else
             if(tagName == "TALB")
-                tags.trackAlbum = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackAlbum = s;});
             else
             if(tagName == "TYER")
-                tags.trackDate = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackDate = s;});
             else
             if(tagName == "TRCK")
-                tags.trackIndex = decodeTagValue(tagValue, tagLen);
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.trackIndex = s;});
             else
             if(tagName == "TPOS")
-                tags.discIndex = decodeTagValue(tagValue, tagLen);
-            if(!tags.trackTitle.isEmpty()
-                && !tags.trackArtist.isEmpty()
-                && !tags.trackAlbum.isEmpty()
-                && !tags.trackDate.isEmpty()
-                && !tags.trackIndex.isEmpty()
-                && !tags.discIndex.isEmpty()
-            ){
-                break;
-            }
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){tags.discIndex = s;});
+            else
+            if(tagName.startsWith("T"))
+                cpTr.addEntry(tagValue, tagLen, [&](const QString& s){Q_UNUSED(s)});
             tagp += tagLen;
         }
     }
+
+    cpTr.processEntries(getTrReference());
+
     if(tags.trackArtist.isEmpty())
         tags.trackArtist = tpeValue;
 
@@ -230,19 +190,22 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
     return true;
 }
 
-bool MSE_SourceStream::parseTagsID3(MSE_SourceTags& tags)
+bool MSE_SourceStream::parseTagsID3(MSE_SourceTags &tags)
 {
     const TAG_ID3* tagsData = reinterpret_cast<const TAG_ID3*>(BASS_ChannelGetTags(stream, BASS_TAG_ID3));
     if(!tagsData)
         return false;
 
-    tags.trackArtist = QString::fromUtf8(&tagsData->artist[0], 30);
-    tags.trackTitle = QString::fromUtf8(&tagsData->title[0], 30);
-    tags.trackAlbum = QString::fromUtf8(&tagsData->album[0], 30);
-    tags.trackDate = QString::fromUtf8(&tagsData->year[0], 4);
+    cpTr.addEntry(&tagsData->artist[0], 30, [&](const QString& s){tags.trackArtist = s;});
+    cpTr.addEntry(&tagsData->title[0], 30, [&](const QString& s){tags.trackTitle = s;});
+    cpTr.addEntry(&tagsData->album[0], 30, [&](const QString& s){tags.trackAlbum = s;});
+    cpTr.addEntry(&tagsData->year[0], 4, [&](const QString& s){tags.trackDate = s;});
+    cpTr.addEntry(&tagsData->comment[0], 30, [&](const QString& s){Q_UNUSED(s)});
 
+    cpTr.processEntries(getTrReference());
     return true;
 }
+
 
 bool MSE_SourceStream::getTags(MSE_SourceTags& tags)
 {

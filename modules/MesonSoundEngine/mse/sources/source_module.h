@@ -30,7 +30,8 @@ public:
 
 protected:
     virtual bool getTags(MSE_SourceTags &tags);
+    bool parseTagsMOD(MSE_SourceTags &tags);
+
     QByteArray memFile;
     HCHANNEL channel;
-    bool parseTagsMOD(MSE_SourceTags &tags);
 };

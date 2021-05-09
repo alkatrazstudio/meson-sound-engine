@@ -29,8 +29,8 @@ public:
 
 protected:
     virtual bool getTags(MSE_SourceTags &tags);
-    bool isLetterOrDigit(char c);
-    QString decodeTagValue(const void *data, quint32 len);
+    static bool isLetterOrDigit(char c);
+
     bool parseTagsID3v2(MSE_SourceTags& tags);
     bool parseTagsID3(MSE_SourceTags &tags);
 

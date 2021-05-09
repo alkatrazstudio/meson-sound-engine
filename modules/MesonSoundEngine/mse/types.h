@@ -283,6 +283,24 @@ struct MSE_SoundInitParams {
 
     **Default**: 32
 */
+
+    bool useICU = false; /*!<
+    Use ICU library to detect tag encodings if they're not UTF.
+    If false, then fallback to ISO-8859-1 encoding.
+
+    WARNING: may produce incorrect tags!
+
+    **Default**: false
+*/
+
+    int icuMinConfidence = 0; /*!<
+    Only try to convert the tag value to UTF-8
+    if ICU has the confidence score at least this big.
+
+    **Valid values**: 0 - 100
+
+    **Default**: 0
+*/
 };
 
 /*!

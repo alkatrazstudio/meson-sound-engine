@@ -155,6 +155,9 @@ void MSE_SourceUrl::parseMeta(QByteArray &data)
     static QRegularExpression rx(
         "StreamTitle\\=\\'([^\\']*)\\'(?:\\;)?",
         QRegularExpression::CaseInsensitiveOption);
+
+
+
     QString icyString = QString::fromUtf8(data);
     QRegularExpressionMatch match = rx.match(icyString);
     QString trackArtist;
