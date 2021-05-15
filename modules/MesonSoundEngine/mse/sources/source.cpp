@@ -256,7 +256,7 @@ void MSE_CodepageTranslator::processEntries(const QString& reference)
     }
 
 #ifdef MSE_ICU
-    if(needICU)
+    if(needICU && useICU)
     {
         QList<ConvEntry> convs;
         if(!detectCodepage(allText, convs))
