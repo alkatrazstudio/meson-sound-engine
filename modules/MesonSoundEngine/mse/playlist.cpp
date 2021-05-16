@@ -938,7 +938,7 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
             s = s.trimmed();
             if(s.isEmpty())
                 continue;
-            if(s.startsWith("#EXTINF"))
+            if(s.startsWith("#"))
                 continue;
             list.append(s);
         }
