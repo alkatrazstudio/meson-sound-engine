@@ -137,7 +137,7 @@ bool MSE_SourceStream::parseTagsID3v2(MSE_SourceTags &tags)
             {
                 break;
             }
-            tagLen = tag2->byteSize() - 1;
+            tagLen = tag2->byteSize(tagh->version) - 1;
             tagName = QString::fromLatin1(&tag2->name[0], sizeof(tag2->name));
             tagp += sizeof(MSE_TagInfoID3v2);
             tagValue = tagp;

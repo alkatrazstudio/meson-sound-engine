@@ -626,11 +626,18 @@ struct MSE_TagInfoID3v2Header {
 
 /*!
  * ID3 v2.3 and v2.4 tag structure.
- * More info at http://id3.org/id3v2.4.0-structure and http://id3.org/id3v2.4.0-frames.
+ * More info at https://id3.org/d3v2.3.0, http://id3.org/id3v2.4.0-structure and http://id3.org/id3v2.4.0-frames.
  */
 struct MSE_TagInfoID3v2 {
     char name[4]; /*!< Tag name (e.g. TIT1, TPE1, ...). */
-    quint8 len[4]; /*!< Tag length in big endian syncsafe integer (only last 7 bits of each byte are effective). */
+    quint8 len[4]; /*!<
+    Tag length.
+
+    version | format
+    --------|-------
+     2.3    | 4-byte big endian integer.
+     2.4    | 4-byte big endian syncsafe integer (only last 7 bits of each byte are effective).
+*/
     quint8 flags[2]; /*!< Tag flags. */
     quint8 encoding; /*!<
     Tag encoding.
@@ -639,16 +646,21 @@ struct MSE_TagInfoID3v2 {
     ------|---------
      $00  | ISO-8859-1. Terminated with $00.
      $01  | UTF-16 encoded Unicode with BOM.
-     $03  | UTF-16BE encoded Unicode without BOM.
-     $04  | UTF-8 encoded Unicode. Terminated with $00.
+     $03  | UTF-16BE encoded Unicode without BOM (only v2.4).
+     $04  | UTF-8 encoded Unicode. Terminated with $00 (only v2.4).
 */
 
     /*!
      * Returns tag size in bytes
      */
-    quint32 byteSize() const
+    quint32 byteSize(const quint8 version) const
     {
-        return ((len[0] & 0b1111111) << 21)
+        return (version == 3)
+             ? (len[0] << 24)
+             + (len[1] << 16)
+             + (len[2] << 8)
+             + len[3]
+             : ((len[0] & 0b1111111) << 21)
              + ((len[1] & 0b1111111) << 14)
              + ((len[2] & 0b1111111) <<  7)
              + ((len[3] & 0b1111111) <<  0);
