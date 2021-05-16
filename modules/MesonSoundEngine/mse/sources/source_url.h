@@ -24,6 +24,65 @@
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 
+class UrlStreamCreator : public QObject
+{
+    Q_OBJECT
+
+public:
+    UrlStreamCreator()
+    {
+        qRegisterMetaType<DWORD>("DWORD");
+        qRegisterMetaType<HSTREAM>("HSTREAM");
+    }
+
+public slots:
+    void create(DWORD flags, BASS_FILEPROCS *procs, void *user)
+    {
+        HSTREAM urlStream = BASS_StreamCreateFileUser(STREAMFILE_BUFFER, flags, procs, user);
+        emit resultReady(urlStream);
+    }
+
+signals:
+    void resultReady(HSTREAM urlStream);
+};
+
+
+class UrlStreamBuffer : public QObject
+{
+    Q_OBJECT
+    QByteArray data;
+    mutable QMutex mutex;
+
+public:
+    qint64 bytesAvailable() const
+    {
+        QMutexLocker locker(&mutex);
+        return data.size();
+    }
+
+    qint64 read(char *dest, qint64 maxSize)
+    {
+        QMutexLocker locker(&mutex);
+        qint64 size = qMin(maxSize, static_cast<qint64>(data.size()));
+        memcpy(dest, data.constData(), size);
+        data.remove(0, size);
+        return size;
+    }
+
+    void write(QByteArray newData)
+    {
+        QMutexLocker locker(&mutex);
+        data.append(newData);
+    }
+
+    void clear()
+    {
+        QMutexLocker locker(&mutex);
+        data.clear();
+    }
+};
+
+
 class MSE_SourceUrl : public MSE_Source
 {
     Q_OBJECT
@@ -90,8 +149,13 @@ protected:
 
     void parseMeta(QByteArray &data);
 
-    void onReadError();
     void tryRestartUrl(bool initialStart = false);
+
+    bool urlStreamIsClosed = true;
+    QThread urlStreamCreatorThread;
+    UrlStreamCreator *urlStreamCreator;
+
+    UrlStreamBuffer urlStreamBuffer;
 
 protected slots:
     void onSockHeaders();
@@ -101,4 +165,8 @@ protected slots:
     void closeSock();
     void openUrl();
     void retryUrl();
+    void onUrlStreamReady(HSTREAM urlStream);
+
+signals:
+    void onUrlStreamCreate(DWORD flags, BASS_FILEPROCS *procs, void *user);
 };

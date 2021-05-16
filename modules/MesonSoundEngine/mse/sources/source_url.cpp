@@ -22,7 +22,7 @@
 #include "coreapp.h"
 
 const int MSE_SourceUrl::maxRedirects = 5; // including redirects from playlists
-const int MSE_SourceUrl::preloadSecs = 10; // create a stream when this amount of seconds available
+const int MSE_SourceUrl::preloadSecs = 0; // create a stream when this amount of seconds available
 const int MSE_SourceUrl::timeoutInterval = 10*1000; // timeout for every single network operation
 const int MSE_SourceUrl::maxBufferCapacity = 10*1024*1024; // once network buffer is full, the connection is closed
 const int MSE_SourceUrl::retryInterval = 10*1000; // wait for this amount of time before reconnect
@@ -37,7 +37,7 @@ void CALLBACK MSE_SourceUrl::startProc(HSYNC handle, DWORD channel, DWORD data, 
 
 void MSE_SourceUrl::fileCloseProc(void *user)
 {
-    Q_UNUSED(user);
+    static_cast<MSE_SourceUrl*>(user)->urlStreamIsClosed = true;
 }
 
 QWORD MSE_SourceUrl::fileLenProc(void *user)
@@ -67,80 +67,74 @@ DWORD MSE_SourceUrl::onFileRead(void *buffer, DWORD length)
 {
     char* p = static_cast<char*>(buffer);
     DWORD n = 0;
-    forever {
-        if(metaLen == 0) // waiting for meta byte
+
+    forever
+    {
+        forever
         {
-            if(netReply->bytesAvailable() < 1)
+            if(urlStreamIsClosed)
                 return n;
-            quint8 metaByte;
-            qint64 nRead = netReply->read(reinterpret_cast<char*>(&metaByte), 1);
-            if(nRead < 0)
+
+            if(metaLen == 0) // waiting for meta byte
             {
-                onReadError();
-                return n;
+                if(urlStreamBuffer.bytesAvailable() < 1)
+                    break;
+                quint8 metaByte;
+                urlStreamBuffer.read(reinterpret_cast<char*>(&metaByte), 1);
+                if(!metaByte)
+                {
+                    metaLen = -1;
+                    chunkPos = 0;
+                }
+                else
+                {
+                    metaLen = 16 * metaByte;
+                }
             }
-            if(!nRead)
-                return n;
-            if(!metaByte)
+
+            if(metaLen > 0)
             {
+                if(urlStreamBuffer.bytesAvailable() < metaLen)
+                    break;
+                QByteArray metaData;
+                metaData.resize(metaLen);
+                urlStreamBuffer.read(metaData.data(), metaLen);
+                parseMeta(metaData);
                 metaLen = -1;
                 chunkPos = 0;
             }
-            else
-            {
-                metaLen = 16 * metaByte;
-            }
+
+            qint64 nToRead = qMin(urlStreamBuffer.bytesAvailable(), static_cast<qint64>(length - n));
+            nToRead = qMin(static_cast<qint64>(chunkLen - chunkPos), nToRead);
+            if(!nToRead)
+                break;
+            urlStreamBuffer.read(p, nToRead);
+            p += nToRead;
+            n += nToRead;
+            chunkPos += nToRead;
+
+            if(chunkPos == chunkLen)
+                metaLen = 0;
         }
 
-        if(metaLen > 0)
-        {
-            if(netReply->bytesAvailable() < metaLen)
-                return n;
-            QByteArray metaData = netReply->read(metaLen);
-            if(metaData.size() != metaLen)
-            {
-                onReadError();
-                return n;
-            }
-            parseMeta(metaData);
-            metaLen = -1;
-            chunkPos = 0;
-        }
-
-        qint64 nToRead = qMin(netReply->bytesAvailable(), static_cast<qint64>(length - n));
-        nToRead = qMin(static_cast<qint64>(chunkLen - chunkPos), nToRead);
-        if(!nToRead)
+        if(n)
             return n;
-        qint64 nRead = netReply->read(p, nToRead);
-        if(nRead < 0)
-        {
-            onReadError();
-            return n;
-        }
 
-        p += nRead;
-        n += nRead;
-        chunkPos += nRead;
-
-        if(chunkPos == chunkLen)
-            metaLen = 0;
+        QThread::msleep(100);
     }
 }
 
 DWORD MSE_SourceUrl::onFileReadNoMeta(void *buffer, DWORD length)
 {
-    qint64 nLeft = netReply->bytesAvailable();
-    if(!nLeft)
-        return 0;
-    qint64 n = netReply->read((char*)buffer, length);
-    if(n < 0)
+    forever
     {
-        onReadError();
-        return 0;
-    }
-    else
-    {
-        return n;
+        if(urlStreamIsClosed)
+            return 0;
+
+        if(urlStreamBuffer.bytesAvailable())
+            return urlStreamBuffer.read((char*)buffer, length);
+
+        QThread::msleep(100);
     }
 }
 
@@ -185,11 +179,6 @@ void MSE_SourceUrl::parseMeta(QByteArray &data)
     }
 }
 
-void MSE_SourceUrl::onReadError()
-{
-    tryRestartUrl();
-}
-
 void MSE_SourceUrl::tryRestartUrl(bool initialStart)
 {
     if(state != mse_sus_WaitingForStart)
@@ -211,6 +200,12 @@ void MSE_SourceUrl::onSockHeaders()
 
 void MSE_SourceUrl::closeSock()
 {
+    if(urlStreamCreatorThread.isRunning())
+    {
+        urlStreamIsClosed = true;
+        urlStreamCreatorThread.quit();
+        urlStreamCreatorThread.wait();
+    }
     if(urlStream)
     {
         BASS_StreamFree(urlStream);
@@ -241,6 +236,7 @@ void MSE_SourceUrl::closeSock()
         timeoutTimer->deleteLater();
         timeoutTimer = nullptr;
     }
+    urlStreamBuffer.clear();
     state = mse_sus_Idle;
 }
 
@@ -336,9 +332,13 @@ void MSE_SourceUrl::retryUrl()
 
 void MSE_SourceUrl::onSockData()
 {
-    if(netReply->bytesAvailable() > maxBufferCapacity)
+    if(netReply->bytesAvailable() > maxBufferCapacity
+        || urlStreamBuffer.bytesAvailable() > maxBufferCapacity)
     {
-        closeSock();
+        if(sound->getState() != mse_scsPlaying)
+            sound->close();
+        else
+            tryRestartUrl(true);
         return;
     }
 
@@ -393,32 +393,67 @@ void MSE_SourceUrl::onSockData()
 
             if(urlStream)
                 BASS_StreamFree(urlStream);
-            urlStream = BASS_StreamCreateFileUser(
-                STREAMFILE_BUFFER,
-                (sound->getDefaultStreamFlags() &~ BASS_SAMPLE_3D)
-                        | BASS_STREAM_RESTRATE | BASS_STREAM_BLOCK | BASS_STREAM_DECODE,
-                &fileProcTable,
-               this
-            );
-            if(!urlStream)
-            {
-                SETERROR(MSE_Object::Err::cannotInitStream, _url);
-                closeSock();
-                return;
-            }
-            if(!BASS_Mixer_StreamAddChannel(mixerStream, urlStream, BASS_MIXER_DOWNMIX))
-            {
-                SETERROR(MSE_Object::Err::mixerAttach, _url);
-                closeSock();
-                return;
-            }
 
             retriesLeft = maxRetries;
             state = mse_sus_ReceivingStream;
+            urlStreamIsClosed = false;
+
+            urlStreamCreator = new UrlStreamCreator;
+            urlStreamCreator->moveToThread(&urlStreamCreatorThread);
+            connect(
+                &urlStreamCreatorThread, &QThread::finished,
+                urlStreamCreator, &QObject::deleteLater
+            );
+            connect(
+                this, &MSE_SourceUrl::onUrlStreamCreate,
+                urlStreamCreator, &UrlStreamCreator::create
+            );
+            connect(
+                urlStreamCreator, &UrlStreamCreator::resultReady,
+                this, &MSE_SourceUrl::onUrlStreamReady
+            );
+            urlStreamCreatorThread.start();
+            emit onUrlStreamCreate(
+                (sound->getDefaultStreamFlags() &~ BASS_SAMPLE_3D)
+                    | BASS_STREAM_RESTRATE | BASS_STREAM_BLOCK | BASS_STREAM_DECODE,
+                &fileProcTable,
+                this
+            );
+            break;
+
+        case mse_sus_ReceivingStream:
+            urlStreamBuffer.write(netReply->readAll());
             break;
 
         default:
             return;
+    }
+}
+
+void MSE_SourceUrl::onUrlStreamReady(HSTREAM newUrlStream)
+{
+    if(urlStreamCreatorThread.isRunning())
+    {
+        urlStreamCreatorThread.quit();
+        urlStreamCreatorThread.wait();
+    }
+
+    if(urlStreamIsClosed)
+        return;
+
+    urlStream = newUrlStream;
+
+    if(!urlStream)
+    {
+        SETERROR(MSE_Object::Err::cannotInitStream, _url);
+        closeSock();
+        return;
+    }
+    if(!BASS_Mixer_StreamAddChannel(mixerStream, urlStream, BASS_MIXER_DOWNMIX))
+    {
+        SETERROR(MSE_Object::Err::mixerAttach, _url);
+        closeSock();
+        return;
     }
 }
 
