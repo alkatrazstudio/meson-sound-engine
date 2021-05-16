@@ -153,7 +153,7 @@ void MSE_SourceUrl::onMixerStart(DWORD channel)
 void MSE_SourceUrl::parseMeta(QByteArray &data)
 {
     static QRegularExpression rx(
-        "StreamTitle\\=\\'([^\\']*)\\'(?:\\;)?",
+        "StreamTitle\\=\\'(.*?)\\'\\;",
         QRegularExpression::CaseInsensitiveOption);
 
 
