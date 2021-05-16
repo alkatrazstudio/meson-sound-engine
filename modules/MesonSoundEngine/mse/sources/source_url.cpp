@@ -150,33 +150,34 @@ void MSE_SourceUrl::parseMeta(QByteArray &data)
         "StreamTitle\\=\\'(.*?)\\'\\;",
         QRegularExpression::CaseInsensitiveOption);
 
-
-
-    QString icyString = QString::fromUtf8(data);
-    QRegularExpressionMatch match = rx.match(icyString);
-    QString trackArtist;
-    QString trackTitle;
-    if(match.hasMatch())
-    {
-        const QString& cap = match.captured(1);
-        int p = cap.indexOf(QStringLiteral(" - "));
-        if(p >= 0)
+    cpTr.addEntry(data.constData(), data.size(), [&](const QString& icyString){
+        QRegularExpressionMatch match = rx.match(icyString);
+        QString trackArtist;
+        QString trackTitle;
+        if(match.hasMatch())
         {
-            trackArtist = cap.left(p).trimmed();
-            trackTitle = cap.mid(p+3).trimmed();
+            const QString& cap = match.captured(1);
+            int p = cap.indexOf(QStringLiteral(" - "));
+            if(p >= 0)
+            {
+                trackArtist = cap.left(p).trimmed();
+                trackTitle = cap.mid(p+3).trimmed();
+            }
+            else
+            {
+                trackTitle = cap.trimmed();
+            }
         }
-        else
-        {
-            trackTitle = cap.trimmed();
-        }
-    }
 
-    if((trackArtist != curTrackArtist) || (trackTitle != curTrackTitle))
-    {
-        curTrackArtist = trackArtist;
-        curTrackTitle = trackTitle;
-        emit onMeta();
-    }
+        if((trackArtist != curTrackArtist) || (trackTitle != curTrackTitle))
+        {
+            curTrackArtist = trackArtist;
+            curTrackTitle = trackTitle;
+            emit onMeta();
+        }
+    });
+
+    cpTr.processEntries(getTrReference());
 }
 
 void MSE_SourceUrl::tryRestartUrl(bool initialStart)
