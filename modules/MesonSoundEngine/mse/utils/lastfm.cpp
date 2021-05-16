@@ -70,7 +70,7 @@ MSE_Lastfm::~MSE_Lastfm()
  *
  * \sa getDefaultInitParams
  */
-void MSE_Lastfm::getDefaultInitParams(MSE_LastfmInitParams &params) const
+void MSE_Lastfm::getDefaultInitParams(MSE_LastfmInitParams &params)
 {
     params.altScrobblePos = 30;
     params.apiKey.clear();

@@ -139,7 +139,7 @@ public:
     explicit MSE_Lastfm(MSE_Sound *parent);
     ~MSE_Lastfm();
 
-    void getDefaultInitParams(MSE_LastfmInitParams& params) const;
+    static void getDefaultInitParams(MSE_LastfmInitParams& params);
 
     bool init(MSE_LastfmInitParams* params = nullptr);
 
