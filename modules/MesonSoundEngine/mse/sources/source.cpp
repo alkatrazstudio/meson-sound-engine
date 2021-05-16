@@ -227,14 +227,17 @@ void MSE_CodepageTranslator::addEntry(const char* strData, int dataLen, const Ca
 
 void MSE_CodepageTranslator::processEntries(const QString& reference)
 {
-    QByteArray allText;
     QMutableListIterator<Entry> i(entries);
+
+#ifdef MSE_ICU
+    QByteArray allText;
     bool needICU = false;
 
     int maxStrSize = 0;
     for(const Entry& entry : qAsConst(entries))
         maxStrSize += entry.strData.size();
     allText.reserve(maxStrSize);
+#endif
 
     while(i.hasNext())
     {
@@ -251,8 +254,12 @@ void MSE_CodepageTranslator::processEntries(const QString& reference)
             continue;
         }
 
+#ifdef MSE_ICU
         allText.append(entry.strData);
         needICU = true;
+#else
+        entry.result = QString::fromLatin1(entry.strData);
+#endif
     }
 
 #ifdef MSE_ICU
