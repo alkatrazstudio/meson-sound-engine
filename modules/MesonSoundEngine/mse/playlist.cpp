@@ -464,7 +464,7 @@ MSE_PlaylistFormatType MSE_Playlist::typeByHeader(QIODevice* dev)
         return mse_pftUnknown;
     QByteArray bytes = dev->peek(detectLength);
     QString s = QString::fromUtf8(bytes.constData());
-    if(s.startsWith("#EXTM3U\r") || s.startsWith("#EXTM3U\n"))
+    if(s.startsWith("#EXTM3U\r") || s.startsWith("#EXTM3U\n") || s.startsWith("#EXTM3U "))
         return mse_pftM3U;
     if(s.startsWith("[playlist]\r") || s.startsWith("[playlist]\n"))
         return mse_pftPLS;
@@ -913,7 +913,8 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
 {
     try{
         QIODeviceExDec _dev(dev);
-        CHECK_S(MSE_Playlist, _dev.readLineUTF8() == "#EXTM3U", MSE_Object::Err::invalidFormat);
+        // assuming it's already M3U, so this check is redundant, but we're just skipping the first line anyway
+        CHECK_S(MSE_Playlist, _dev.readLineUTF8().startsWith("#EXTM3U"), MSE_Object::Err::invalidFormat);
         QString s;
         QByteArray data;
         bool isNotUtf = false;
