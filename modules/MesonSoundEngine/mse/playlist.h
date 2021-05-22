@@ -102,9 +102,9 @@ public:
     int addAnything(const QList<MSE_PlaylistEntry> &entries, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
     void clear();
 
-    static bool write(QIODevice *dev, const QStringList &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
+    static bool write(QIODevice *dev, const QList<MSE_PlaylistEntry> &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
     bool write(QIODevice *dev, MSE_PlaylistFormatType playlistType = mse_pftM3U) const;
-    static bool write(const QString& filename, const QStringList &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
+    static bool write(const QString& filename, const QList<MSE_PlaylistEntry> &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
     bool write(const QString& filename, MSE_PlaylistFormatType playlistType = mse_pftM3U) const;
     static bool parse(QIODevice* dev, QList<MSE_PlaylistEntry> &playlist);
     static bool parse(const QString& filename, QList<MSE_PlaylistEntry> &playlist);
@@ -194,11 +194,11 @@ protected:
     void addToPlaylistRaw(MSE_Source* src);
     bool setSourceDataForCueSheet(MSE_CueSheet* cueSheet);
 
-    static bool writeASX(QIODevice* dev, const QStringList& realPlaylist);
-    static bool writeM3U(QIODevice* dev, const QStringList& realPlaylist);
-    static bool writeXSPF(QIODevice* dev, const QStringList& realPlaylist);
-    static bool writePLS(QIODevice* dev, const QStringList& realPlaylist);
-    static bool writeWPL(QIODevice *dev, const QStringList& realPlaylist);
+    static bool writeASX(QIODevice* dev, const QList<MSE_PlaylistEntry>& realPlaylist);
+    static bool writeM3U(QIODevice* dev, const QList<MSE_PlaylistEntry>& entries);
+    static bool writeXSPF(QIODevice* dev, const QList<MSE_PlaylistEntry>& entries);
+    static bool writePLS(QIODevice* dev, const QList<MSE_PlaylistEntry>& entries);
+    static bool writeWPL(QIODevice *dev, const QList<MSE_PlaylistEntry>& entries);
 
     static bool parseASX(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);
     static bool parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);

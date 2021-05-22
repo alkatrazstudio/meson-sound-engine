@@ -864,8 +864,8 @@ bool MSE_Playlist::setSourceDataForCueSheet(MSE_CueSheet *cueSheet)
 /*!
  * Parses ASX file.
  * A stream position in *dev* must point to first symbol of a playlist (not BOM mark).
- * The function appends successfully parsed filenames to a *list* variable.
- * Returns false if an error occured during a parsing.
+ * The function appends successfully parsed entries to a *list* variable.
+ * Returns false if an error occured during the parsing.
  */
 bool MSE_Playlist::parseASX(QIODevice *dev, QList<MSE_PlaylistEntry>& list)
 {
@@ -1100,10 +1100,10 @@ bool MSE_Playlist::parseWPL(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
 }
 
 /*!
- * Writes a list of a filenames in a playlist format to *dev*.
+ * Writes a list of playlist format in a playlist format to *dev*.
  * The format of a target playlist is specified by *playlistType* parameter.
  */
-bool MSE_Playlist::write(QIODevice *dev, const QStringList &playlist, MSE_PlaylistFormatType playlistType)
+bool MSE_Playlist::write(QIODevice *dev, const QList<MSE_PlaylistEntry> &playlist, MSE_PlaylistFormatType playlistType)
 {
     switch(playlistType)
     {
@@ -1128,9 +1128,9 @@ bool MSE_Playlist::write(QIODevice *dev, const QStringList &playlist, MSE_Playli
 }
 
 /*!
- * Writes a list of a filenames in ASX format to *dev*.
+ * Writes a list of playlist entries in ASX format to *dev*.
  */
-bool MSE_Playlist::writeASX(QIODevice *dev, const QStringList &list)
+bool MSE_Playlist::writeASX(QIODevice *dev, const QList<MSE_PlaylistEntry> &entries)
 {
     QXmlStreamWriter* xml = new QXmlStreamWriter(dev);
 
@@ -1138,11 +1138,11 @@ bool MSE_Playlist::writeASX(QIODevice *dev, const QStringList &list)
     xml->writeStartDocument();
     xml->writeStartElement("asx");
     xml->writeAttribute("version", "3.0");
-    foreach(QString line, list)
+    foreach(auto entry, entries)
     {
         xml->writeStartElement("entry");
         xml->writeStartElement("ref");
-        xml->writeAttribute("href", line);
+        xml->writeAttribute("href", entry.filename);
         xml->writeEndElement();
         xml->writeEndElement();
     }
@@ -1161,12 +1161,28 @@ bool MSE_Playlist::writeASX(QIODevice *dev, const QStringList &list)
 /*!
  * Same as writeASX(), only for M3U format.
  */
-bool MSE_Playlist::writeM3U(QIODevice *dev, const QStringList &list)
+bool MSE_Playlist::writeM3U(QIODevice *dev, const QList<MSE_PlaylistEntry> &entries)
 {
     try{
         QIODeviceExDec _dev(dev);
         _dev.writeLnUTF8("#EXTM3U");
-        _dev.writeLinesUTF8(list);
+
+        foreach(auto entry, entries)
+        {
+            auto tags = entry.tags.data();
+            if(tags)
+            {
+                if(!tags->trackTitle.isEmpty())
+                    _dev.writeLnUTF8(QString("#EXTINF:-1,")+tags->trackTitle); // currently track length is not saved anywhere
+                if(!tags->trackArtist.isEmpty())
+                    _dev.writeLnUTF8(QString("#EXTART:")+tags->trackTitle);
+                if(!tags->trackAlbum.isEmpty())
+                    _dev.writeLnUTF8(QString("#EXTALB:")+tags->trackTitle);
+                if(!tags->genre.isEmpty())
+                    _dev.writeLnUTF8(QString("#EXTGENRE:")+tags->trackTitle);
+            }
+            _dev.writeLnUTF8(entry.filename);
+        }
     }catch(...){
         SETERROR_S(MSE_Playlist, MSE_Object::Err::writeError);
         return false;
@@ -1177,7 +1193,7 @@ bool MSE_Playlist::writeM3U(QIODevice *dev, const QStringList &list)
 /*!
  * Same as writeASX(), only for XSPF format.
  */
-bool MSE_Playlist::writeXSPF(QIODevice *dev, const QStringList &list)
+bool MSE_Playlist::writeXSPF(QIODevice *dev, const QList<MSE_PlaylistEntry> &entries)
 {
     QXmlStreamWriter* xml = new QXmlStreamWriter(dev);
 
@@ -1187,10 +1203,10 @@ bool MSE_Playlist::writeXSPF(QIODevice *dev, const QStringList &list)
     xml->writeAttribute("version", "1");
     xml->writeAttribute("xmlns", "http://xspf.org/ns/0/");
     xml->writeStartElement("trackList");
-    foreach(QString line, list)
+    foreach(auto entry, entries)
     {
         xml->writeStartElement("track");
-        xml->writeTextElement("location", line);
+        xml->writeTextElement("location", entry.filename);
         xml->writeEndElement();
     }
     xml->writeEndDocument();
@@ -1208,15 +1224,15 @@ bool MSE_Playlist::writeXSPF(QIODevice *dev, const QStringList &list)
 /*!
  * Same as writeASX(), only for PLS format.
  */
-bool MSE_Playlist::writePLS(QIODevice *dev, const QStringList &list)
+bool MSE_Playlist::writePLS(QIODevice *dev, const QList<MSE_PlaylistEntry> &entries)
 {
     try{
         QIODeviceExDec _dev(dev);
         _dev.writeLnUTF8("[playlist]");
         QString prefix("File");
         int a=0;
-        foreach(QString line, list)
-            _dev.writeLnUTF8(prefix+QString::number(++a)+"="+line);
+        foreach(auto entry, entries)
+            _dev.writeLnUTF8(prefix+QString::number(++a)+"="+entry.filename);
         _dev.writeLnUTF8(QStringLiteral("NumberOfEntries=")+QString::number(a));
         _dev.writeLnUTF8(QString("Version=2"));
     }catch(...){
@@ -1229,7 +1245,7 @@ bool MSE_Playlist::writePLS(QIODevice *dev, const QStringList &list)
 /*!
  * Same as writeASX(), only for WPL format.
  */
-bool MSE_Playlist::writeWPL(QIODevice *dev, const QStringList &list)
+bool MSE_Playlist::writeWPL(QIODevice *dev, const QList<MSE_PlaylistEntry> &entries)
 {
     QXmlStreamWriter* xml = nullptr;
 
@@ -1243,10 +1259,10 @@ bool MSE_Playlist::writeWPL(QIODevice *dev, const QStringList &list)
         xml->writeStartElement("smil");
         xml->writeStartElement("body");
         xml->writeStartElement("seq");
-        foreach(QString line, list)
+        foreach(auto entry, entries)
         {
             xml->writeStartElement("media");
-            xml->writeAttribute("src", line);
+            xml->writeAttribute("src", entry.filename);
             xml->writeEndElement();
         }
         xml->writeEndDocument();
@@ -1268,10 +1284,10 @@ bool MSE_Playlist::writeWPL(QIODevice *dev, const QStringList &list)
  */
 bool MSE_Playlist::write(QIODevice *dev, MSE_PlaylistFormatType playlistType) const
 {
-    QStringList lines;
+    QList<MSE_PlaylistEntry> entries;
     foreach(MSE_Source* src, playlist)
-        lines.append(src->getFullFilename());
-    if(!write(dev, lines, playlistType))
+        entries.append(src->entry);
+    if(!write(dev, entries, playlistType))
         return false;
     return true;
 }
@@ -1280,7 +1296,7 @@ bool MSE_Playlist::write(QIODevice *dev, MSE_PlaylistFormatType playlistType) co
  * Writes a list of a filenames playlist to a file.
  * The format of a target playlist is specified by *playlistType* parameter.
  */
-bool MSE_Playlist::write(const QString &filename, const QStringList &playlist, MSE_PlaylistFormatType playlistType)
+bool MSE_Playlist::write(const QString &filename, const QList<MSE_PlaylistEntry> &playlist, MSE_PlaylistFormatType playlistType)
 {
     QFileEx f;
     f.setFileName(filename);
@@ -1297,10 +1313,10 @@ bool MSE_Playlist::write(const QString &filename, const QStringList &playlist, M
  */
 bool MSE_Playlist::write(const QString &filename, MSE_PlaylistFormatType playlistType) const
 {
-    QStringList lines;
+    QList<MSE_PlaylistEntry> entries;
     foreach(MSE_Source* src, playlist)
-        lines.append(src->getFullFilename());
-    return write(filename, lines, playlistType);
+        entries.append(src->entry);
+    return write(filename, entries, playlistType);
 }
 
 /*!
