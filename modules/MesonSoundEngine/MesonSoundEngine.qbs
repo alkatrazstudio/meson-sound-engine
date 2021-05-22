@@ -89,6 +89,10 @@ Module {
                 'mse/sources/source_plugin.h',
                 'mse/sources/source_stream.cpp',
                 'mse/sources/source_stream.h',
+                'mse/sources/types/source_tags.cpp',
+                'mse/sources/types/source_tags.h',
+                'mse/utils/codepage_translator.cpp',
+                'mse/utils/codepage_translator.h'
             ]
 
             if(MesonSoundEngine.sourceUrl)

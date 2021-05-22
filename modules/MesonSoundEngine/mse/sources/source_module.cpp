@@ -38,7 +38,7 @@ HCHANNEL MSE_SourceModule::open()
         return channel;
 
     // check if the module is zipped
-    if(!sound->getEngine()->unzipFile(filename, memFile))
+    if(!sound->getEngine()->unzipFile(entry.filename, memFile))
         return false;
     // open unzipped file from memory
     channel = BASS_MusicLoad(

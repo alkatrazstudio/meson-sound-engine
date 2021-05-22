@@ -199,14 +199,14 @@ bool MSE_Playlist::removeAllSourcesFromQueue(int sourceIndex)
  * Adds a file to a playlist.
  * Returns false if a file cannot be found or has an unsupported sound file format.
  */
-bool MSE_Playlist::addFile(const QString &filename)
+bool MSE_Playlist::addFile(const MSE_PlaylistEntry &entry)
 {
     QFileInfo info;
-    info.setFile(filename);
+    info.setFile(entry.filename);
     QString fullFilename = info.absoluteFilePath();
-    CHECK(!fullFilename.isEmpty(), MSE_Object::Err::cannotGetAbsolutePath, filename);
+    CHECK(!fullFilename.isEmpty(), MSE_Object::Err::cannotGetAbsolutePath, entry.filename);
 
-    MSE_Source* src = filenameToSource(fullFilename);
+    MSE_Source* src = playlistEntryToSource(MSE_PlaylistEntry(fullFilename, entry.tags));
     if(!src)
         return false;
 
@@ -218,13 +218,13 @@ bool MSE_Playlist::addFile(const QString &filename)
  * Adds a file to a playlist.
  * Returns false if a specified URL is invalid.
  */
-bool MSE_Playlist::addUrl(const QString& url)
+bool MSE_Playlist::addUrl(const MSE_PlaylistEntry& urlEntry)
 {
-    MSE_Source* src = filenameToSource(url);
+    MSE_Source* src = playlistEntryToSource(urlEntry);
     if(src->type != mse_sctRemote)
     {
         delete src;
-        SETERROR(MSE_Object::Err::notURL, url);
+        SETERROR(MSE_Object::Err::notURL, urlEntry.filename);
         return false;
     }
     addToPlaylistRaw(src);
@@ -286,7 +286,7 @@ int MSE_Playlist::addFromDirectory(const QString &dirname, MSE_SourceLoadFlags s
 
     foreach(entry, entries)
         if(!entry.isEmpty())
-            result += addAnything(fullDirname + entry, sourceLoadFlags);
+            result += addAnything(MSE_PlaylistEntry(fullDirname + entry), sourceLoadFlags);
     return result;
 }
 
@@ -332,7 +332,7 @@ int MSE_Playlist::addFromPlaylist(const QString &filename, MSE_SourceLoadFlags s
         foreach(MSE_CueSheetTrack* track, cueSheet->tracks)
         {
             src = createSourceFromType(cueSheet->sourceType);
-            src->filename = cueSheet->sourceFilename;
+            src->entry = MSE_PlaylistEntry(cueSheet->sourceFilename);
             src->cueSheetTrack = track;
             src->type = cueSheet->sourceType;
             addToPlaylistRaw(src);
@@ -343,8 +343,8 @@ int MSE_Playlist::addFromPlaylist(const QString &filename, MSE_SourceLoadFlags s
     CHECK(f.open(QIODevice::ReadOnly), MSE_Object::Err::openFail, filename);
 
     int result = 0;
-    QStringList files;
-    if(!parse(&f, files))
+    QList<MSE_PlaylistEntry> entries;
+    if(!parse(&f, entries))
     {
         f.close();
         SETERROR(MSE_Object::Err::invalidFormat, filename);
@@ -355,8 +355,8 @@ int MSE_Playlist::addFromPlaylist(const QString &filename, MSE_SourceLoadFlags s
     QString curDir = QDir::currentPath();
     QDir::setCurrent(info.canonicalPath()+"/");
 
-    foreach(QString source, files)
-        result += addAnything(source,sourceLoadFlags);
+    foreach(MSE_PlaylistEntry entry, entries)
+        result += addAnything(entry, sourceLoadFlags);
     f.close();
 
     QDir::setCurrent(curDir+"/");
@@ -388,34 +388,34 @@ int MSE_Playlist::addFromPlaylist(const QStringList &filenames, MSE_SourceLoadFl
  *
  * \sa addFile, addURL, addFromDirectory, addFromPlaylist
  */
-int MSE_Playlist::addAnything(const QString &source, MSE_SourceLoadFlags sourceLoadFlags)
+int MSE_Playlist::addAnything(const MSE_PlaylistEntry& entry, MSE_SourceLoadFlags sourceLoadFlags)
 {
-    MSE_SoundChannelType type = engine->typeByFilename(source);
+    MSE_SoundChannelType type = engine->typeByFilename(entry.filename);
     if(type == mse_sctRemote)
-        if(addUrl(source))
+        if(addUrl(entry))
             return 1;
 
     QDir dir;
-    dir.setPath(source);
+    dir.setPath(entry.filename);
     if(dir.exists())
     {
         if(sourceLoadFlags.testFlag(mse_slfSkipDirs))
             return 0;
         else
-            return addFromDirectory(source, sourceLoadFlags);
+            return addFromDirectory(entry.filename, sourceLoadFlags);
     }
 
     bool isCue;
-    if(hasSupportedExtension(source, isCue))
+    if(hasSupportedExtension(entry.filename, isCue))
     {
         if(sourceLoadFlags.testFlag(mse_slfSkipPlaylists) && !isCue)
             return 0;
         else
-            return addFromPlaylist(source, sourceLoadFlags);
+            return addFromPlaylist(entry.filename, sourceLoadFlags);
     }
 
-    if(/*!sound->getInitParams().typeByFilename || */(type != mse_sctUnknown))
-        if(addFile(source))
+    if(type != mse_sctUnknown)
+        if(addFile(entry))
            return 1;
 
     return 0;
@@ -428,11 +428,11 @@ int MSE_Playlist::addAnything(const QString &source, MSE_SourceLoadFlags sourceL
  *
  * \sa addFile, addURL, addFromDirectory, addFromPlaylist
  */
-int MSE_Playlist::addAnything(const QStringList &sources, MSE_SourceLoadFlags sourceLoadFlags)
+int MSE_Playlist::addAnything(const QList<MSE_PlaylistEntry> &entries, MSE_SourceLoadFlags sourceLoadFlags)
 {
     int result = 0;
-    foreach(QString source, sources)
-        result += addAnything(source, sourceLoadFlags);
+    foreach(auto entry, entries)
+        result += addAnything(entry, sourceLoadFlags);
     return result;
 }
 
@@ -510,7 +510,7 @@ bool MSE_Playlist::skipBOM(QIODevice* dev)
  *
  * \note All parsed items will be appended to a *list*.
  */
-bool MSE_Playlist::parse(QIODevice* dev, QStringList &list)
+bool MSE_Playlist::parse(QIODevice* dev, QList<MSE_PlaylistEntry> &list)
 {
     MSE_PlaylistFormatType pType = typeByHeader(dev);
     switch(pType)
@@ -540,7 +540,7 @@ bool MSE_Playlist::parse(QIODevice* dev, QStringList &list)
  *
  * \note All parsed items will be appended to a *list*.
  */
-bool MSE_Playlist::parse(const QString &filename, QStringList &playlist)
+bool MSE_Playlist::parse(const QString &filename, QList<MSE_PlaylistEntry>& playlist)
 {
     QFileEx f;
     f.setFileName(filename);
@@ -552,14 +552,14 @@ bool MSE_Playlist::parse(const QString &filename, QStringList &playlist)
 }
 
 /*!
- * Returns a single sound source entry for a specified filename.
- * Note, that you can only pass filenames of a sound files tothis function.
+ * Returns a single sound source entry for a specified playlist entry.
+ * Note, that you can only pass entries of sound files to this function.
  * The filenames however can be in format &lt;filename&gt;.cue:&lt;index&gt;
  * which means that a sound source is a part of a CUE sheet.
  */
-MSE_Source *MSE_Playlist::filenameToSource(const QString &filename)
+MSE_Source *MSE_Playlist::playlistEntryToSource(const MSE_PlaylistEntry &entry)
 {
-    QString fname = engine->normalizeSource(filename);
+    QString fname = engine->normalizeSource(entry.filename);
     MSE_Source* source;
     MSE_SoundChannelType chType;
 
@@ -570,7 +570,7 @@ MSE_Source *MSE_Playlist::filenameToSource(const QString &filename)
         source = createSourceFromType(chType);
         if(!source)
             return source;
-        source->filename = fname;
+        source->entry = MSE_PlaylistEntry(fname, entry.tags);
         source->cueSheetTrack = nullptr;
         source->type = chType;
         return source;
@@ -588,7 +588,7 @@ MSE_Source *MSE_Playlist::filenameToSource(const QString &filename)
             source = createSourceFromType(chType);
             if(!source)
                 return source;
-            source->filename = fname;
+            source->entry = MSE_PlaylistEntry(fname);
             source->cueSheetTrack = nullptr;
             source->type = chType;
             return source;
@@ -609,7 +609,7 @@ MSE_Source *MSE_Playlist::filenameToSource(const QString &filename)
     source = createSourceFromType(chType);
     if(!source)
         return source;
-    source->filename = cueSheet->sourceFilename;
+    source->entry = MSE_PlaylistEntry(cueSheet->sourceFilename);
     source->cueSheetTrack = cueSheet->tracks.at(index);
     source->type = chType;
 
@@ -867,7 +867,7 @@ bool MSE_Playlist::setSourceDataForCueSheet(MSE_CueSheet *cueSheet)
  * The function appends successfully parsed filenames to a *list* variable.
  * Returns false if an error occured during a parsing.
  */
-bool MSE_Playlist::parseASX(QIODevice *dev, QStringList &list)
+bool MSE_Playlist::parseASX(QIODevice *dev, QList<MSE_PlaylistEntry>& list)
 {
     QString s;
     QIODevice* nDev = dev;
@@ -891,7 +891,7 @@ bool MSE_Playlist::parseASX(QIODevice *dev, QStringList &list)
                             if(attributes.hasAttribute("href"))
                             {
                                 s = attributes.value("href").toString().trimmed();
-                                list.append(s);
+                                list.append(MSE_PlaylistEntry(s));
                             }
                         }
                     }
@@ -909,7 +909,7 @@ bool MSE_Playlist::parseASX(QIODevice *dev, QStringList &list)
 /*!
  * Same as parseASX(), but parses M3U file.
  */
-bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
+bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
 {
     try{
         QIODeviceExDec _dev(dev);
@@ -940,7 +940,7 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
                 continue;
             if(s.startsWith("#"))
                 continue;
-            list.append(s);
+            list.append(MSE_PlaylistEntry(s));
         }
     }catch(...){
         SETERROR_S(MSE_Playlist, MSE_Object::Err::readError);
@@ -951,7 +951,7 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QStringList &list)
 /*!
  * Same as parseASX(), but parses XSPF file.
  */
-bool MSE_Playlist::parseXSPF(QIODevice* dev, QStringList &list)
+bool MSE_Playlist::parseXSPF(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
 {
     QString s;
     QIODevice* nDev = dev;
@@ -972,7 +972,7 @@ bool MSE_Playlist::parseXSPF(QIODevice* dev, QStringList &list)
                         if(xml->name() == "location")
                         {
                             s = xml->readElementText().trimmed();
-                            list.append(s);
+                            list.append(MSE_PlaylistEntry(s));
                         }
                     }
                     xml->readNext();
@@ -989,7 +989,7 @@ bool MSE_Playlist::parseXSPF(QIODevice* dev, QStringList &list)
 /*!
  * Same as parseASX(), but parses PLS file.
  */
-bool MSE_Playlist::parsePLS(QIODevice* dev, QStringList &list)
+bool MSE_Playlist::parsePLS(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
 {
     try{
         QIODeviceExDec _dev(dev);
@@ -1003,7 +1003,7 @@ bool MSE_Playlist::parsePLS(QIODevice* dev, QStringList &list)
             s = _dev.readLineUTF8();
             QRegularExpressionMatch match = rx.match(s);
             if(match.hasMatch())
-                list.append(match.captured(1));
+                list.append(MSE_PlaylistEntry(match.captured(1)));
         }
     }catch(...){
         SETERROR_S(MSE_Playlist, MSE_Object::Err::readError);
@@ -1014,7 +1014,7 @@ bool MSE_Playlist::parsePLS(QIODevice* dev, QStringList &list)
 /*!
  * Same as parseASX(), but parses WPL file.
  */
-bool MSE_Playlist::parseWPL(QIODevice* dev, QStringList &list)
+bool MSE_Playlist::parseWPL(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
 {
     QString s;
     QIODevice* nDev = dev;
@@ -1038,7 +1038,7 @@ bool MSE_Playlist::parseWPL(QIODevice* dev, QStringList &list)
                             if(attributes.hasAttribute("src"))
                             {
                                 s = attributes.value("src").toString().trimmed();
-                                list.append(s);
+                                list.append(MSE_PlaylistEntry(s));
                             }
                         }
                     }
@@ -1414,10 +1414,10 @@ QString MSE_Playlist::playbackModeToString(MSE_PlaylistPlaybackMode mode)
 /*!
  * Clears the playlist and adds a sound source from a single file.
  */
-bool MSE_Playlist::setFile(const QString &filename)
+bool MSE_Playlist::setFile(const MSE_PlaylistEntry &entry)
 {
     clear();
-    return addFile(filename);
+    return addFile(entry);
 }
 
 /*!
@@ -1763,8 +1763,8 @@ bool MSE_Playlist::isFirstInDir()
     const MSE_Source* prevSource = getPrevSource();
     if(!prevSource)
         return true;
-    QString curParentDir = (QFileInfo(currentSource->filename)).absoluteDir().absolutePath();
-    QString prevParentDir = (QFileInfo(prevSource->filename)).absoluteDir().absolutePath();
+    QString curParentDir = (QFileInfo(currentSource->entry.filename)).absoluteDir().absolutePath();
+    QString prevParentDir = (QFileInfo(prevSource->entry.filename)).absoluteDir().absolutePath();
     return curParentDir != prevParentDir;
 }
 
@@ -1785,8 +1785,8 @@ bool MSE_Playlist::isLastInDir()
     const MSE_Source* nextSource = getNextSource();
     if(!nextSource)
         return true;
-    QString curParentDir = (QFileInfo(currentSource->filename)).absoluteDir().absolutePath();
-    QString nextParentDir = (QFileInfo(nextSource->filename)).absoluteDir().absolutePath();
+    QString curParentDir = (QFileInfo(currentSource->entry.filename)).absoluteDir().absolutePath();
+    QString nextParentDir = (QFileInfo(nextSource->entry.filename)).absoluteDir().absolutePath();
     return curParentDir != nextParentDir;
 }
 

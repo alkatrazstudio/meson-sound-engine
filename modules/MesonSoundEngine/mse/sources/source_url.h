@@ -19,6 +19,7 @@
 #pragma once
 
 #include "mse/sources/source.h"
+#include "mse/playlist.h"
 #include "mse/bass/bassmix.h"
 
 #include <QtNetwork/QNetworkAccessManager>
@@ -94,7 +95,7 @@ public:
 
 protected:
     virtual bool getTags(MSE_SourceTags &tags);
-    bool openUrl(const QString& url, int redirectsLeft);
+    bool openUrl(const MSE_PlaylistEntry& urlEntry, int redirectsLeft);
 
     QNetworkAccessManager* netMan;
     QNetworkReply *netReply;
@@ -123,7 +124,7 @@ protected:
     int preloadLength;
     bool isMono;
 
-    QString _url;
+    MSE_PlaylistEntry _url;
     int _redirectsLeft;
 
     static const int maxRedirects;

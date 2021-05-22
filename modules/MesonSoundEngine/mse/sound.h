@@ -121,7 +121,7 @@ public:
     inline int getSampleRateConversion() const {return sampleRateConversion;}
 
     bool startRecord();
-    bool openFromFile(const QString& filename);
+    bool openFromFile(const MSE_PlaylistEntry &entry);
     bool openFromList(int index = 0);
     bool playFromList(int index = 0);
     bool openNextValid();

@@ -196,7 +196,7 @@ void MSE_SourceUrl::onSockHeaders()
 {
     QString url = netReply->attribute(QNetworkRequest::RedirectionTargetAttribute).toString();
     if(!url.isEmpty())
-        openUrl(url, _redirectsLeft-1);
+        openUrl(MSE_PlaylistEntry(url), _redirectsLeft-1);
 }
 
 void MSE_SourceUrl::closeSock()
@@ -252,17 +252,17 @@ void MSE_SourceUrl::onSockDone()
     buf.seek(0);
 
     // parse response as a playlist
-    QStringList pList;
+    QList<MSE_PlaylistEntry> pList;
     if(!sound->getPlaylist()->parse(&buf, pList))
     {
-        SETERROR(MSE_Object::Err::invalidFormat, _url);
+        SETERROR(MSE_Object::Err::invalidFormat, _url.filename);
         state = mse_sus_Idle;
         return;
     }
     int n = pList.size();
     if(!n)
     {
-        SETERROR(MSE_Object::Err::playlistIsEmpty, _url);
+        SETERROR(MSE_Object::Err::playlistIsEmpty, _url.filename);
         state = mse_sus_Idle;
         return;
     }
@@ -309,7 +309,7 @@ void MSE_SourceUrl::onSockError(QNetworkReply::NetworkError err)
 
 void MSE_SourceUrl::openUrl()
 {
-    openUrl(filename, maxRedirects);
+    openUrl(entry, maxRedirects);
 }
 
 void MSE_SourceUrl::retryUrl()
@@ -446,13 +446,13 @@ void MSE_SourceUrl::onUrlStreamReady(HSTREAM newUrlStream)
 
     if(!urlStream)
     {
-        SETERROR(MSE_Object::Err::cannotInitStream, _url);
+        SETERROR(MSE_Object::Err::cannotInitStream, _url.filename);
         closeSock();
         return;
     }
     if(!BASS_Mixer_StreamAddChannel(mixerStream, urlStream, BASS_MIXER_DOWNMIX))
     {
-        SETERROR(MSE_Object::Err::mixerAttach, _url);
+        SETERROR(MSE_Object::Err::mixerAttach, _url.filename);
         closeSock();
         return;
     }
@@ -529,10 +529,10 @@ bool MSE_SourceUrl::getTags(MSE_SourceTags &tags)
     return true;
 }
 
-bool MSE_SourceUrl::openUrl(const QString &url, int redirectsLeft)
+bool MSE_SourceUrl::openUrl(const MSE_PlaylistEntry &urlEntry, int redirectsLeft)
 {
     closeSock();
-    _url = url;
+    _url = urlEntry;
     _redirectsLeft = redirectsLeft;
     if(!_redirectsLeft)
     {
@@ -540,7 +540,7 @@ bool MSE_SourceUrl::openUrl(const QString &url, int redirectsLeft)
         return false;
     }
     QNetworkRequest req;
-    QUrl urlObj(url);
+    QUrl urlObj(urlEntry.filename);
     if(!urlObj.isValid())
     {
         SETERROR(MSE_Object::Err::urlInvalid);

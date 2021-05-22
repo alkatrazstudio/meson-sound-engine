@@ -19,6 +19,7 @@
 #pragma once
 
 #include "mse/types.h"
+#include "mse/sources/types/source_tags.h"
 #include "mse/sound.h"
 #include "mse/sources/source.h"
 
@@ -35,7 +36,7 @@ class MSE_Playlist : public MSE_Object
 
 public:
     MSE_Playlist(MSE_Sound* parent = nullptr);
-    ~MSE_Playlist();
+    ~MSE_Playlist() override;
 
     /*!
      * Returns a list of sound sources.
@@ -89,26 +90,26 @@ public:
     static MSE_PlaylistPlaybackMode playbackModeFromString(const QString& str, bool* ok = nullptr);
     static QString playbackModeToString(MSE_PlaylistPlaybackMode mode);
 
-    bool setFile(const QString& filename);
-    bool addFile(const QString& filename);
-    bool addUrl(const QString& url);
+    bool setFile(const MSE_PlaylistEntry &entry);
+    bool addFile(const MSE_PlaylistEntry &entry);
+    bool addUrl(const MSE_PlaylistEntry &urlEntry);
     bool addUrl(const QString& url, MSE_Sources& sourcesList);
     int addFromDirectory(const QString& dirname, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
     int addFromDirectory(const QStringList& dirnames, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
     int addFromPlaylist(const QString& filename, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
     int addFromPlaylist(const QStringList& filenames, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
-    int addAnything(const QString& source, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
-    int addAnything(const QStringList& sources, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
+    int addAnything(const MSE_PlaylistEntry& entry, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
+    int addAnything(const QList<MSE_PlaylistEntry> &entries, MSE_SourceLoadFlags sourceLoadFlags = mse_slfDefault);
     void clear();
 
     static bool write(QIODevice *dev, const QStringList &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
     bool write(QIODevice *dev, MSE_PlaylistFormatType playlistType = mse_pftM3U) const;
     static bool write(const QString& filename, const QStringList &playlist, MSE_PlaylistFormatType playlistType = mse_pftM3U);
     bool write(const QString& filename, MSE_PlaylistFormatType playlistType = mse_pftM3U) const;
-    static bool parse(QIODevice* dev, QStringList &playlist);
-    static bool parse(const QString& filename, QStringList& playlist);
+    static bool parse(QIODevice* dev, QList<MSE_PlaylistEntry> &playlist);
+    static bool parse(const QString& filename, QList<MSE_PlaylistEntry> &playlist);
 
-    MSE_Source* filenameToSource(const QString& filename);
+    MSE_Source* playlistEntryToSource(const MSE_PlaylistEntry &entry);
     MSE_Source* createSourceFromType(MSE_SoundChannelType type);
     MSE_CueSheet* getCueSheet(const QString& filename);
 
@@ -199,11 +200,11 @@ protected:
     static bool writePLS(QIODevice* dev, const QStringList& realPlaylist);
     static bool writeWPL(QIODevice *dev, const QStringList& realPlaylist);
 
-    static bool parseASX(QIODevice* dev, QStringList& realPlaylist);
-    static bool parseM3U(QIODevice* dev, QStringList& realPlaylist);
-    static bool parseXSPF(QIODevice* dev, QStringList& realPlaylist);
-    static bool parsePLS(QIODevice* dev, QStringList& realPlaylist);
-    static bool parseWPL(QIODevice *dev, QStringList& realPlaylist);
+    static bool parseASX(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);
+    static bool parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);
+    static bool parseXSPF(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);
+    static bool parsePLS(QIODevice* dev, QList<MSE_PlaylistEntry>& realPlaylist);
+    static bool parseWPL(QIODevice *dev, QList<MSE_PlaylistEntry>& realPlaylist);
 
 signals:
     void onPlaybackModeChange();

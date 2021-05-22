@@ -215,9 +215,9 @@ bool MSE_Sound::init(const MSE_SoundInitParams& params)
  * The file cannot be a playlist.
  * This function will clear the playlist first.
  */
-bool MSE_Sound::openFromFile(const QString& filename)
+bool MSE_Sound::openFromFile(const MSE_PlaylistEntry& entry)
 {
-    if(!playlist->setFile(filename))
+    if(!playlist->setFile(entry))
         return false;
     return openFromList(0);
 }
@@ -1252,7 +1252,7 @@ bool MSE_Sound::playFirstValidInDir()
 
 void MSE_Sound::fillTrackInfo()
 {
-    trackFilename = currentSource->filename;
+    trackFilename = currentSource->entry.filename;
 
     QFileInfo info;
 
@@ -1374,7 +1374,7 @@ bool MSE_Sound::open(MSE_Source* source)
         return false;
 
     HCHANNEL newHandle = source->open();
-    CHECK(newHandle, MSE_Object::Err::cannotLoadSound, source->filename);
+    CHECK(newHandle, MSE_Object::Err::cannotLoadSound, source->entry.filename);
 
     if(currentSource != source)
         if(!close())

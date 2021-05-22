@@ -20,6 +20,9 @@
 
 #include "mse/object.h"
 
+#include "types/source_tags.h"
+#include "mse/utils/codepage_translator.h"
+
 struct MSE_CueSheet;
 
 /*!
@@ -61,89 +64,26 @@ struct MSE_CueSheet {
  */
 typedef QList<MSE_CueSheet*> MSE_CueSheets;
 
-struct MSE_SourceTags {
-    QString trackArtist;
-    QString trackTitle;
-    QString trackAlbum;
-    QString trackDate;
-    QString nTracks;
-    QString trackIndex;
-    QString nDiscs;
-    QString discIndex;
-    QString genre;
-
-    void clear()
-    {
-        trackArtist.clear();
-        trackTitle.clear();
-        trackAlbum.clear();
-        trackDate.clear();
-        nTracks.clear();
-        trackIndex.clear();
-        nDiscs.clear();
-        discIndex.clear();
-        genre.clear();
-    }
-
-    static QString clean(const QString& s)
-    {
-        return QString::fromUtf8(s.toUtf8().data()).trimmed();
-    }
-
-    void clean()
-    {
-        trackArtist = clean(trackArtist);
-        trackTitle = clean(trackTitle);
-        trackAlbum = clean(trackAlbum);
-        trackDate = clean(trackDate);
-        nTracks = clean(nTracks);
-        trackIndex = clean(trackIndex);
-        nDiscs = clean(nDiscs);
-        discIndex = clean(discIndex);
-        genre = clean(genre);
-    }
-};
-
 
 typedef QHash<QString, QString> MSE_SourceAssocTags;
 
 
-struct UCharsetDetector;
-struct UConverter;
+/*!
+ * Filename and metadata for one line in the playlist
+ */
+struct MSE_PlaylistEntry {
+    QString filename;
+    QSharedPointer<MSE_SourceTags> tags;
 
-class MSE_CodepageTranslator {
-    using Callback = std::function<void(const QString&)>;
+    explicit MSE_PlaylistEntry()
+    {
+    }
 
-    struct Entry {
-        Callback callback;
-        QByteArray strData;
-        QString result;
-        bool needICU = true;
-    };
-
-    struct ConvEntry {
-        QSharedPointer<UConverter> converter;
-        int confidence;
-    };
-
-    QList<Entry> entries;
-    bool useICU;
-    int minConfidence;
-
-    void convertAllToLatin();
-    bool detectCodepage(const QByteArray& text, QList<ConvEntry> &cnvPtrs);
-    bool translateWithICU(
-        QSharedPointer<UConverter> cnvPtr,
-        UConverter* utfCnv,
-        const QByteArray& strData,
-        QString& result);
-    bool translateWithoutICU(const QByteArray &strData, QString& result);
-
-public:
-    MSE_CodepageTranslator(bool useICU, int minConfidence = 0);
-    void addEntry(const char* strData, int dataLen, const Callback &callback);
-    void processEntries(const QString& reference);
-    void clearEntries();
+    explicit MSE_PlaylistEntry(const QString& filename, QSharedPointer<MSE_SourceTags> tags = nullptr):
+        filename(filename),
+        tags(tags)
+    {
+    }
 };
 
 
@@ -177,7 +117,7 @@ public:
     bool parseTagsOGG(HCHANNEL channel, MSE_SourceTags &tags, DWORD tagsType = BASS_TAG_OGG);
 
     int index; /*!< Source index */
-    QString filename; /*!< Full file path to the audio file. */
+    MSE_PlaylistEntry entry; /*!< Full file path to the audio file. */
     QByteArray filenameData; /*!< Character data for a filename */
     const MSE_CueSheetTrack* cueSheetTrack; /*!<
     If a source is a part of a CUE sheet, then this property holds the information about CUE sheet track.
