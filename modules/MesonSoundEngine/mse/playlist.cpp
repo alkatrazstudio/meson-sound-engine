@@ -918,6 +918,14 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
         QString s;
         QByteArray data;
         bool isNotUtf = false;
+        QSharedPointer<MSE_SourceTags> tags;
+
+        // https://en.wikipedia.org/wiki/M3U#Extended_M3U
+        QRegularExpression rxInf("^#EXTINF:(?:[^,]*,)*(.+)$");
+        QRegularExpression rxAlb("^#EXTALB:(.+)$");
+        QRegularExpression rxArt("^#EXTART:(.+)$");
+        QRegularExpression rxGenre("^#EXTGENRE:(.+)$");
+
         forever
         {
             if(_dev.atEnd())
@@ -938,9 +946,47 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
             s = s.trimmed();
             if(s.isEmpty())
                 continue;
+
             if(s.startsWith("#"))
+            {
+                if(s.startsWith("#EXT"))
+                {
+                    if(!tags)
+                        tags = QSharedPointer<MSE_SourceTags>::create();
+
+                    QRegularExpressionMatch match = rxInf.match(s);
+                    if(match.hasMatch())
+                    {
+                        tags->trackTitle = match.captured(1).trimmed();
+                        continue;
+                    }
+
+                    match = rxAlb.match(s);
+                    if(match.hasMatch())
+                    {
+                        tags->trackAlbum = match.captured(1).trimmed();
+                        continue;
+                    }
+
+                    match = rxArt.match(s);
+                    if(match.hasMatch())
+                    {
+                        tags->trackArtist = match.captured(1).trimmed();
+                        continue;
+                    }
+
+                    match = rxGenre.match(s);
+                    if(match.hasMatch())
+                    {
+                        tags->genre = match.captured(1).trimmed();
+                        continue;
+                    }
+                }
                 continue;
-            list.append(MSE_PlaylistEntry(s));
+            }
+
+            list.append(MSE_PlaylistEntry(s, tags));
+            tags.clear(); // tags were moved to the shared pointer in MSE_PlaylistEntry
         }
     }catch(...){
         SETERROR_S(MSE_Playlist, MSE_Object::Err::readError);
