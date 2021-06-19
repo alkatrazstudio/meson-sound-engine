@@ -926,6 +926,10 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
         QRegularExpression rxArt("^#EXTART:(.+)$");
         QRegularExpression rxGenre("^#EXTGENRE:(.+)$");
 
+        QString extAlb;
+        QString extArt;
+        QString extGenre;
+
         forever
         {
             if(_dev.atEnd())
@@ -964,26 +968,36 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
                     match = rxAlb.match(s);
                     if(match.hasMatch())
                     {
-                        tags->trackAlbum = match.captured(1).trimmed();
+                        auto extStr = match.captured(1).trimmed();
+                        if(!extStr.isEmpty())
+                            extAlb = extStr;
                         continue;
                     }
 
                     match = rxArt.match(s);
                     if(match.hasMatch())
                     {
-                        tags->trackArtist = match.captured(1).trimmed();
+                        auto extStr = match.captured(1).trimmed();
+                        if(!extStr.isEmpty())
+                            extArt = extStr;
                         continue;
                     }
 
                     match = rxGenre.match(s);
                     if(match.hasMatch())
                     {
-                        tags->genre = match.captured(1).trimmed();
+                        auto extStr = match.captured(1).trimmed();
+                        if(!extStr.isEmpty())
+                            extGenre = extStr;
                         continue;
                     }
                 }
                 continue;
             }
+
+            tags->trackAlbum = extAlb;
+            tags->trackArtist = extArt;
+            tags->genre = extGenre;
 
             list.append(MSE_PlaylistEntry(s, tags));
             tags.clear(); // tags were moved to the shared pointer in MSE_PlaylistEntry
