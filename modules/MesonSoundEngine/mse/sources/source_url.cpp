@@ -146,38 +146,49 @@ void MSE_SourceUrl::onMixerStart(DWORD channel)
 
 void MSE_SourceUrl::parseMeta(QByteArray &data)
 {
+    if(sound->getInitParams().icuUseForRemoteSources)
+    {
+        cpTr.addEntry(data.constData(), data.size(), [&](const QString& icyString){
+            setIcyString(icyString);
+        });
+        cpTr.processEntries(getTrReference());
+        return;
+    }
+
+    QString icyString = QString::fromUtf8(data);
+    setIcyString(icyString);
+}
+
+void MSE_SourceUrl::setIcyString(const QString& icyString)
+{
     static QRegularExpression rx(
         "StreamTitle\\=\\'(.*?)\\'\\;",
         QRegularExpression::CaseInsensitiveOption);
 
-    cpTr.addEntry(data.constData(), data.size(), [&](const QString& icyString){
-        QRegularExpressionMatch match = rx.match(icyString);
-        QString trackArtist;
-        QString trackTitle;
-        if(match.hasMatch())
+    QRegularExpressionMatch match = rx.match(icyString);
+    QString trackArtist;
+    QString trackTitle;
+    if(match.hasMatch())
+    {
+        const QString& cap = match.captured(1);
+        int p = cap.indexOf(QStringLiteral(" - "));
+        if(p >= 0)
         {
-            const QString& cap = match.captured(1);
-            int p = cap.indexOf(QStringLiteral(" - "));
-            if(p >= 0)
-            {
-                trackArtist = cap.left(p).trimmed();
-                trackTitle = cap.mid(p+3).trimmed();
-            }
-            else
-            {
-                trackTitle = cap.trimmed();
-            }
+            trackArtist = cap.left(p).trimmed();
+            trackTitle = cap.mid(p+3).trimmed();
         }
-
-        if((trackArtist != curTrackArtist) || (trackTitle != curTrackTitle))
+        else
         {
-            curTrackArtist = trackArtist;
-            curTrackTitle = trackTitle;
-            emit onMeta();
+            trackTitle = cap.trimmed();
         }
-    });
+    }
 
-    cpTr.processEntries(getTrReference());
+    if((trackArtist != curTrackArtist) || (trackTitle != curTrackTitle))
+    {
+        curTrackArtist = trackArtist;
+        curTrackTitle = trackTitle;
+        emit onMeta();
+    }
 }
 
 void MSE_SourceUrl::tryRestartUrl(bool initialStart)

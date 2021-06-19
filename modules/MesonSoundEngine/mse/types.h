@@ -301,6 +301,12 @@ struct MSE_SoundInitParams {
 
     **Default**: 0
 */
+
+    bool icuUseForRemoteSources = false; /*!<
+    Use ICU also for remote sources.
+
+    **Default**: false
+*/
 };
 
 /*!

@@ -149,6 +149,7 @@ protected:
     void onMixerStart(DWORD channel);
 
     void parseMeta(QByteArray &data);
+    void setIcyString(const QString& icyString);
 
     void tryRestartUrl(bool initialStart = false);
 
