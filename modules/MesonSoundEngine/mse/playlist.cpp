@@ -995,9 +995,12 @@ bool MSE_Playlist::parseM3U(QIODevice* dev, QList<MSE_PlaylistEntry>& list)
                 continue;
             }
 
-            tags->trackAlbum = extAlb;
-            tags->trackArtist = extArt;
-            tags->genre = extGenre;
+            if(!tags.isNull())
+            {
+                tags->trackAlbum = extAlb;
+                tags->trackArtist = extArt;
+                tags->genre = extGenre;
+            }
 
             list.append(MSE_PlaylistEntry(s, tags));
             tags.clear(); // tags were moved to the shared pointer in MSE_PlaylistEntry
