@@ -1189,11 +1189,11 @@ bool MSE_Playlist::writeM3U(QIODevice *dev, const QList<MSE_PlaylistEntry> &entr
                 if(!tags->trackTitle.isEmpty())
                     _dev.writeLnUTF8(QString("#EXTINF:-1,")+tags->trackTitle); // currently track length is not saved anywhere
                 if(!tags->trackArtist.isEmpty())
-                    _dev.writeLnUTF8(QString("#EXTART:")+tags->trackTitle);
+                    _dev.writeLnUTF8(QString("#EXTART:")+tags->trackArtist);
                 if(!tags->trackAlbum.isEmpty())
-                    _dev.writeLnUTF8(QString("#EXTALB:")+tags->trackTitle);
+                    _dev.writeLnUTF8(QString("#EXTALB:")+tags->trackAlbum);
                 if(!tags->genre.isEmpty())
-                    _dev.writeLnUTF8(QString("#EXTGENRE:")+tags->trackTitle);
+                    _dev.writeLnUTF8(QString("#EXTGENRE:")+tags->genre);
             }
             _dev.writeLnUTF8(entry.filename);
         }
