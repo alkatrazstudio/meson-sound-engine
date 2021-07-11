@@ -37,7 +37,7 @@ HCHANNEL MSE_SourceStream::open()
 {
     stream = BASS_StreamCreateFile(
         false,
-        getUtfFilename(),
+        getDataSourceUtfFilename(),
         0, 0,
         sound->getDefaultStreamFlags()
     );

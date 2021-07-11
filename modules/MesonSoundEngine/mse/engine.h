@@ -148,11 +148,6 @@ public:
     inline const MSE_VersionInfo& getLibVersion() const {return libVersion;}
 
     /*!
-     * Returns user's home directory.
-     */
-    inline const QString& getHomeDir() const {return homeDir;}
-
-    /*!
      * Returns true if floating point samples are supported.
      */
     inline bool getIsFloatSupported() const {return isFloatSupported;}
@@ -208,8 +203,7 @@ public:
 
     bool unzipFile(const QString &filename, QByteArray& arr) const;
 
-    MSE_SoundChannelType typeByFilename(const QString &filename) const;
-    QString normalizeSource(const QString &source) const;
+    MSE_SoundChannelType typeByUri(const QString &filename) const;
 
     /*!
      * Returns a number of loaded plugins.
@@ -235,7 +229,6 @@ protected:
     QList<MSE_EnginePluginInfo> plugins; /*!< Information about loaded plugin. */
     QList<HPLUGIN> pluginHandles; /*!< List of plugin handles. It matches plugins list. */
     float volume; /*!< Current MSE volume in range [0;1]. */
-    QString homeDir; /*!< User's home directory. */
     QByteArray uaString; /*!< UA string in UTF-8. */
 
     bool masterVolumeAvailable; /*!< True if OS master volume can be controlled by MSE. */

@@ -176,28 +176,25 @@ bool MSE_Source::parseTagsOGG(HCHANNEL channel, MSE_SourceTags &tags, DWORD tags
  *
  *     D:\music\The Best Ballads\3.flac
  */
-QString MSE_Source::getFullFilename() const
+const QString& MSE_Source::getPlaylistUri() const
 {
-    if(cueSheetTrack)
-    {
-        return cueSheetTrack->sheet->cueFilename+
-                ":"+
-                QString::number(cueSheetTrack->index);
-    }
-    else
-    {
-        return entry.filename;
-    }
+    return entry.uri;
 }
 
-const char *MSE_Source::getUtfFilename()
+const char *MSE_Source::getDataSourceUtfFilename()
 {
     if(!utfFilename)
     {
+        QString dataSourceFilename;
+        if(cueSheetTrack)
+            dataSourceFilename = cueSheetTrack->sheet->dataSourceFilename;
+        else
+            dataSourceFilename = entry.filename;
+
 #ifdef Q_OS_WIN
-        utfFilename = (char*)(entry.filename.utf16());
+        utfFilename = (char*)(dataSourceFilename.utf16());
 #else
-        filenameData = entry.filename.toUtf8();
+        filenameData = dataSourceFilename.toUtf8();
         utfFilename = filenameData.constData();
 #endif
     }

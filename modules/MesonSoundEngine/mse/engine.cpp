@@ -101,7 +101,6 @@ bool MSE_Engine::init(const MSE_EngineInitParams& params)
 
     initParams.useDefaultDevice = (BASS_GetConfig(BASS_CONFIG_DEV_DEFAULT) != 0);
     refreshVolume();
-    homeDir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).first();
     masterVolumeAvailable = initMasterVolumeControl();
     return true;
 }
@@ -454,14 +453,14 @@ bool MSE_Engine::unzipFile(const QString &filename, QByteArray& arr) const
 }
 
 /*!
- * Returns a type of a sound file by its filename.
+ * Returns a type of a sound file by its URI.
  */
-MSE_SoundChannelType MSE_Engine::typeByFilename(const QString &filename) const
+MSE_SoundChannelType MSE_Engine::typeByUri(const QString &uri) const
 {
-    QString fName = normalizeSource(filename);
+    QString fName = MSE_Utils::normalizeUri(uri);
     if(fName.contains("://"))
     {
-        QUrl url(filename);
+        QUrl url(uri);
         if(url.isValid())
             return mse_sctRemote;
         else
@@ -484,43 +483,10 @@ MSE_SoundChannelType MSE_Engine::typeByFilename(const QString &filename) const
     if((ext == "mo3")||(ext == "it")||(ext == "xm")||(ext == "s3m")||(ext == "mtm")||(ext == "mod")||(ext == "umx")||
             (ext == "mdz")||(ext == "s3z")||(ext == "xmz")||(ext == "itz"))
         return mse_sctModule;
-    if(filename.lastIndexOf(".cue:", -1, Qt::CaseInsensitive) > 0)
+    if(uri.lastIndexOf(".cue:", -1, Qt::CaseInsensitive) > 0)
         return mse_sctStream;
 
     return mse_sctUnknown;
-}
-
-/*!
- * Transforms file:// links to a normal filenames.
- * On Unix, if a filename begins with ~,
- * then this function will repace ~ with a home directory.
- */
-QString MSE_Engine::normalizeSource(const QString &source) const
-{
-    QString result = source.trimmed();
-
-    if(result.startsWith("file:///"))
-    {
-#ifdef Q_OS_WIN
-        result = result.mid(8);
-#else
-        result = result.mid(7);
-#endif
-    }
-#ifndef Q_OS_WIN
-    else
-    {
-        if(result.startsWith('~'))
-        {
-            if(result.size() == 1)
-                result.replace(0, 1, homeDir);
-            else
-                if(result.at(1) == '/')
-                    result.replace(0, 1, homeDir);
-        }
-    }
-#endif
-    return result;
 }
 
 /*!

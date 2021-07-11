@@ -19,6 +19,7 @@
 #pragma once
 
 #include "mse/object.h"
+#include "mse/utils/utils.h"
 
 #include "types/source_tags.h"
 #include "mse/utils/codepage_translator.h"
@@ -47,7 +48,7 @@ typedef QList<MSE_CueSheetTrack*> MSE_CueSheetTracks;
  */
 struct MSE_CueSheet {
     QString cueFilename; /*!< The full file path to .cue file. */
-    QString sourceFilename; /*!< The full file path to corresponding audio file. */
+    QString dataSourceFilename; /*!< The full file path to corresponding audio file. */
     MSE_CueSheetTracks tracks; /*!< List of tracks included. */
     MSE_SoundChannelType sourceType; /*!<
     Type of an audio channel for the audio file (MSE_CueSheet::sourceFilename).
@@ -69,20 +70,65 @@ typedef QHash<QString, QString> MSE_SourceAssocTags;
 
 
 /*!
- * Filename and metadata for one line in the playlist
+ * URI, filename and metadata for one line in the playlist.
+ * Note: uri points to a playlist entry and may not be an actual filename
+ *       in case the entry is located within a file with multiple playlist entries (e.g. CUE-sheet).
  */
 struct MSE_PlaylistEntry {
+    QString uri;
     QString filename;
     QSharedPointer<MSE_SourceTags> tags;
+    int cueIndex = -1;
 
     explicit MSE_PlaylistEntry()
     {
     }
 
-    explicit MSE_PlaylistEntry(const QString& filename, QSharedPointer<MSE_SourceTags> tags = nullptr):
-        filename(filename),
+    explicit MSE_PlaylistEntry(const QString& uri, QSharedPointer<MSE_SourceTags> tags = nullptr):
+        uri(MSE_Utils::normalizeUri(uri)),
         tags(tags)
     {
+        int p = uri.lastIndexOf(".cue:", -2, Qt::CaseInsensitive);
+        if(p <= 0)
+        {
+            filename = uri;
+        }
+        else
+        {
+            QChar c;
+            QString indexString;
+            int n = uri.size();
+            bool ok = true;
+            for(int a=p+5; a<n; a++)
+            {
+                c = uri.at(a);
+                if((c < '0') || (c > '9'))
+                {
+                    ok = false;
+                    break;
+                }
+                indexString.append(c);
+            }
+
+            if(ok)
+            {
+                cueIndex = indexString.toInt();
+                filename = uri.left(p+4);
+            }
+            else
+            {
+                filename = uri;
+            }
+        }
+
+        QFileInfo info;
+        info.setFile(filename);
+        if(info.exists())
+        {
+            filename = info.absoluteFilePath();
+            if(cueIndex >= 0)
+                this->uri = filename + ":" + QString::number(cueIndex);
+        }
     }
 };
 
@@ -117,7 +163,7 @@ public:
     bool parseTagsOGG(HCHANNEL channel, MSE_SourceTags &tags, DWORD tagsType = BASS_TAG_OGG);
 
     int index; /*!< Source index */
-    MSE_PlaylistEntry entry; /*!< Full file path to the audio file. */
+    MSE_PlaylistEntry entry; /*!< Info about playlist entry. */
     QByteArray filenameData; /*!< Character data for a filename */
     const MSE_CueSheetTrack* cueSheetTrack; /*!<
     If a source is a part of a CUE sheet, then this property holds the information about CUE sheet track.
@@ -130,10 +176,10 @@ public:
     \sa MSE_SoundChannelType
 */
 
-    QString getFullFilename() const;
+    const QString& getPlaylistUri() const;
 
 protected:
-    const char *getUtfFilename();
+    const char *getDataSourceUtfFilename();
     virtual bool getTags(MSE_SourceTags& tags);
 
     MSE_Sound* sound;

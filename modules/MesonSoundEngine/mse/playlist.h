@@ -113,7 +113,7 @@ public:
     MSE_Source* createSourceFromType(MSE_SoundChannelType type);
     MSE_CueSheet* getCueSheet(const QString& filename);
 
-    int indexOfFullName(const QString& fullSourceName);
+    int indexOfUri(const QString& uri);
 
     void shuffle();
 

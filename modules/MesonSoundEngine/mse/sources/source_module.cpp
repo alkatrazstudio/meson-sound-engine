@@ -29,7 +29,7 @@ HCHANNEL MSE_SourceModule::open()
 {
     channel = BASS_MusicLoad(
         false,
-        getUtfFilename(),
+        getDataSourceUtfFilename(),
         0, 0,
         sound->getDefaultMusicFlags(),
         0

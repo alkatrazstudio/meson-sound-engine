@@ -825,7 +825,7 @@ QString MSE_Sound::channelStateToString(MSE_SoundChannelState state)
  */
 QString MSE_Sound::getDirName(const QString& source, bool base) const
 {
-    MSE_SoundChannelType sourceType = engine->typeByFilename(source);
+    MSE_SoundChannelType sourceType = engine->typeByUri(source);
     switch(sourceType)
     {
         case mse_sctUnknown:
